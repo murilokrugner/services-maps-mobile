@@ -1,9 +1,14 @@
-import React, {useEffect, useState} from 'react';
-import {View, ActivityIndicator, StyleSheet} from 'react-native';
-import MapView from 'react-native-maps';
-import GeoLocation from '@react-native-community/geolocation';
+import React, {useState, useEffect} from 'react';
 
-// import { Container } from './styles';
+import {View, ActivityIndicator, StyleSheet} from 'react-native';
+
+import MapView, {Marker} from 'react-native-maps';
+
+import Geolocation from '@react-native-community/geolocation';
+
+import logo from './assets/profile.jpg';
+
+import api from './services/api';
 
 const styles = StyleSheet.create({
   container: {
@@ -18,21 +23,60 @@ const styles = StyleSheet.create({
   },
 });
 
-export default function App() {
+function App() {
   const [loading, setLoading] = useState(true);
   const [coordinates, setCoordinates] = useState({});
+  const [points, setPoints] = useState([]);
 
   useEffect(() => {
-    GeoLocation.getCurrentPosition(({coords}) => {
-      setCoordinates(coords);
-      setLoading(false);
-    });
+    Geolocation.getCurrentPosition(
+      ({coords}) => {
+        setCoordinates(coords);
+        setLoading(false);
+      },
+      error => {
+        console.log(error);
+      },
+      {enableHighAccuracy: true, maximumAge: 10000, timeout: 10000},
+    );
   }, []);
+
+  useEffect(() => {
+    async function getData() {
+      try {
+        const {data} = await api.get('/points', {
+          params: coordinates,
+        });
+
+        setPoints(data);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    if (coordinates) {
+      getData();
+    }
+  }, [coordinates]);
+
+  function renderPoints() {
+    return points.map(point => (
+      <Marker
+        key={point.id}
+        image={logo}
+        coordinate={{
+          latitude: parseFloat(point.latitude),
+          longitude: parseFloat(point.longitude),
+        }}
+        title={point.name}
+      />
+    ));
+  }
 
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color={'#fff'} />
+        <ActivityIndicator size="large" color="#FFF" />
       ) : (
         <MapView
           initialRegion={{
@@ -42,9 +86,11 @@ export default function App() {
             longitudeDelta: 0.0068,
           }}
           style={styles.map}>
-          {}
+          {renderPoints()}
         </MapView>
       )}
     </View>
   );
 }
+
+export default App;
